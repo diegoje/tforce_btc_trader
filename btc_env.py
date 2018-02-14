@@ -427,11 +427,7 @@ class BitcoinEnv(Environment):
             # We're done.
             step_acc.signals.append(0)  # Add one last signal (to match length)
             if h.reward_type == 'sharpe':
-                diff = (pd.Series(step_acc.totals.trade).pct_change() - pd.Series(step_acc.totals.hold).pct_change())[1:]
-                mean, std = diff.mean(), diff.std()
-                if (std, mean) != (0, 0):
-                    reward += mean / std
-
+                reward += self.sharpe(modified=True)
 
         if terminal and self.mode in (Mode.LIVE, Mode.TEST_LIVE):
             # Only do real buy/sell on last step if LIVE (in case there are multiple steps b/w, we only care about
@@ -496,23 +492,35 @@ class BitcoinEnv(Environment):
         # if step_acc.value <= 0 or step_acc.cash <= 0: terminal = 1
         return next_state, terminal, reward
 
+    def sharpe(self, modified=False):
+        totals = self.acc.step.totals
+        diff = (pd.Series(totals.trade).pct_change() - pd.Series(totals.hold).pct_change())[1:]
+        mean, std = diff.mean(), diff.std()
+        if (std, mean) != (0, 0):
+            # Usually Sharpe has `sqrt(num_trades)` in front (or `num_trading_days`?). Experimenting being creative w/
+            # trade-diversity, etc. Give Sharpe some extra info
+            # breadth = math.sqrt(np.uniques(signals))  # standard
+            if not modified:
+                breadth = 1  # disable
+                return breadth * (mean / std)
+
+            # These modifications help coax the agent in the right direction; kinda steering him with bumpers. "We
+            # want you to hold more often than not, but more trades is better, and of course make money, ..."
+            sharpe = mean / std
+            signs = [np.sign(x) for x in self.acc.step.signals]  # signal directions. amounts add complication
+            mean_near_zero = 1 - abs(np.mean(signs))  # favor a mean closer to zero (more holds than not)
+            diversity = 0  # np.sqrt(np.std(signs))  # favor more trades - up to a point (sqrt)
+            sharpe = sharpe * 100 # but most important is sharpe. TODO how to weight these w/o hard-coding? common number is .004
+            return mean_near_zero + diversity + sharpe
+        return 0.
+
     def episode_finished(self, runner):
         step_acc, ep_acc, test_acc = self.acc.step, self.acc.episode, self.acc.tests
         signals = step_acc.signals
         totals = step_acc.totals
         n_uniques = float(len(np.unique(signals)))
-
-        # Calculate the Sharpe ratio.
-        diff = (pd.Series(totals.trade).pct_change() - pd.Series(totals.hold).pct_change())[1:]
-        mean, std, sharpe = diff.mean(), diff.std(), 0
-        if (std, mean) != (0, 0):
-            # Usually Sharpe has `sqrt(num_trades)` in front (or `num_trading_days`?). Experimenting being creative w/
-            # trade-diversity, etc. Give Sharpe some extra info
-            # breadth = math.sqrt(np.uniques(signals))
-            # breadth = np.std([np.sign(x) for x in signals])  # get signal direction, amount not as important (and adds complications)
-            breadth = 1
-            sharpe = breadth * (mean / std)
-
+        sharpe = self.sharpe()
+        custom = self.sharpe(modified=True)
         cumm_ret = (totals.trade[-1] / totals.trade[0] - 1) - (totals.hold[-1] / totals.hold[0] - 1)
 
         ep_acc.sharpes.append(float(sharpe))
@@ -524,7 +532,8 @@ class BitcoinEnv(Environment):
         eq_0 = len([s for s in signals if s == 0])
         gt_0 = len([s for s in signals if s > 0])
         completion = int(test_acc.i / test_acc.n_tests * 100)
-        print(f"{completion}%\tSteps: {step_acc.i}\tSharpe: {'%.3f'%sharpe}\tReturn: {'%.3f'%cumm_ret}\tTrades:\t{lt_0}[<0]\t{eq_0}[=0]\t{gt_0}[>0]")
+        steps = ""  # f"\tSteps: {step_acc.i}"
+        print(f"{completion}%{steps}\tCustom: {'%.3f'%custom}\tSharpe: {'%.3f'%sharpe}\tReturn: {'%.3f'%cumm_ret}\tTrades:\t{lt_0}[<0]\t{eq_0}[=0]\t{gt_0}[>0]")
         return True
 
     def run_deterministic(self, runner, print_results=True):

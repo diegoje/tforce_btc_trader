@@ -268,29 +268,29 @@ hypers['distribution_model'] = {
     # 'variable_noise': TODO
 }
 hypers['pg_model'] = {
-    'baseline_mode': {
-        'type': 'bool',
-        'guess': True,
-        'hydrate': hydrate_baseline
-    },
-    'gae_lambda': {
-        'type': 'bool',
-        'guess': False,
-        'post': lambda x, others: \
-            None if not (x and others['baseline_mode']) else True  # True hydrated in main code
-
-        # 'type': 'bounded',
-        # 'vals': [.8, 1.],
-        # 'guess': .8,  # meaning "off",
-        ## use gae_lambda if baseline_mode=True, and if gae_lambda > .9. Turn off if <.9, then .8-.9 has the same
-        ## range as .9-1 for decent experimenting.
-        ## TODO currently setting to 1 if discount=1, is that correct? (is gae_lambda similar to discount?)
-        ## If so, shouldn't gae_lambda always == discount?
-        # 'post': lambda x, others: \
-        #     None if not (x > .9 and others['baseline_mode']) \
-        #     else 1. if others['discount'] == 1. \
-        #     else x
-    },
+    'baseline_mode': True,  # {
+    #     'type': 'bool',
+    #     'guess': True,
+    #     'hydrate': hydrate_baseline
+    # },
+    'gae_lambda': True,  # {
+    #     'type': 'bool',
+    #     'guess': True,
+    #     'post': lambda x, others: \
+    #         None if not (x and others['baseline_mode']) else True  # True hydrated in main code
+    #
+    #     'type': 'bounded',
+    #     'vals': [.8, 1.],
+    #     'guess': .8,  # meaning "off",
+    #     # use gae_lambda if baseline_mode=True, and if gae_lambda > .9. Turn off if <.9, then .8-.9 has the same
+    #     # range as .9-1 for decent experimenting.
+    #     # TODO currently setting to 1 if discount=1, is that correct? (is gae_lambda similar to discount?)
+    #     # If so, shouldn't gae_lambda always == discount?
+    #     'post': lambda x, others: \
+    #         None if not (x > .9 and others['baseline_mode']) \
+    #         else 1. if others['discount'] == 1. \
+    #         else x
+    # },
     # 'baseline_optimizer.num_steps': 5
 }
 hypers['pg_prob_ration_model'] = {
@@ -387,7 +387,7 @@ hypers['custom'] = {
     'net.width': {
         'type': 'bounded',
         'vals': [3, 9],
-        'guess': 4,
+        'guess': 6,
         'pre': round,
         'hydrate': two_to_the
     },
@@ -450,11 +450,11 @@ hypers['custom'] = {
     },
     # Should rewards be as-is (PNL), or "how much better than holding" (advantage)? if `sharpe` then we discount 1.0
     # and calculate sharpe score at episode-terminal
-    'reward_type': {
-        'type': 'int',
-        'vals': ['raw', 'advantage', 'sharpe'],
-        'guess': 'sharpe'
-    },
+    'reward_type': 'sharpe',  # {
+    #     'type': 'int',
+    #     'vals': ['raw', 'advantage', 'sharpe'],
+    #     'guess': 'sharpe'
+    # },
     # Scale the inputs and rewards
     'scale': {
         'type': 'bool',
