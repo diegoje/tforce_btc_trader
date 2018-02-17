@@ -1,27 +1,28 @@
 import tensorflow as tf
-#from tensorflow.examples.tutorials.mnist import input_data
-#mnist = input_data.read_data_sets('/tmp/data/', one_hot=True)
-
+import pickle
+import numpy as np
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
+from pp_tf_dl.create_sentiment_featuresets import create_feature_sets_and_labels
 
-
-
+featuresets_f = open('sentiment_set.pickle', "rb")
+train_x, train_y, test_x, test_y = pickle.load(featuresets_f)
+featuresets_f.close()
 
 
 n_nodes_hl1 = 500
 n_nodes_hl2 = 500
 n_nodes_hl3 = 500
 
-n_classes = 10
+n_classes = 2
 batch_size = 100
 
-x = tf.placeholder('float', [None, 784])
+x = tf.placeholder('float', [None, len(train_x[0])])
 y = tf.placeholder('float')
 
 def neural_network_model(data):
-    hidden_1_layer = {'weights': tf.Variable(tf.random_normal([784, n_nodes_hl1])),
+    hidden_1_layer = {'weights': tf.Variable(tf.random_normal([len(train_x[0]), n_nodes_hl1])),
                       'biases': tf.Variable(tf.random_normal([n_nodes_hl1]))}
     hidden_2_layer = {'weights': tf.Variable(tf.random_normal([n_nodes_hl1, n_nodes_hl2])),
                       'biases': tf.Variable(tf.random_normal([n_nodes_hl1]))}
@@ -58,16 +59,24 @@ def train_neural_network(x):
 
         for epoch in range(hm_epochs):
             epoch_loss = 0
-            for _ in range(int(mnist.train.num_examples/batch_size)):
-                epoch_x, epoch_y = mnist.train.next_batch(batch_size)
-                _, c = sess.run([optimizer, cost], feed_dict={x: epoch_x, y: epoch_y})
+
+            i = 0
+            while i < len(train_x):
+                start = i
+                end = start + batch_size
+                batch_x = np.array(train_x[start:end])
+                batch_y = np.array(train_y[start:end])
+
+                _, c = sess.run([optimizer, cost], feed_dict={x: batch_x, y: batch_y})
                 epoch_loss += c
 
-            print("Epoch {} completed out of {} loss: {}".format(epoch, hm_epochs, epoch_loss))
+                i += batch_size
+
+            print("Epoch {} completed out of {} loss: {}".format(epoch+1, hm_epochs, epoch_loss))
 
         correct = tf.equal(tf.argmax(prediction, 1), tf.argmax(y, 1))
         accuracy = tf.reduce_mean(tf.cast(correct, 'float'))
-        print("Accuracy: {}".format(accuracy.eval({x: mnist.test.images, y: mnist.test.labels})))
+        print("Accuracy: {}".format(accuracy.eval({x: test_x, y: test_y})))
 
 
 train_neural_network(x)
