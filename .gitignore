@@ -5,3 +5,4 @@ saves/
 plt/
 logs_async/
 config.json
+*.pickle

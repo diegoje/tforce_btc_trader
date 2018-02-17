@@ -1,35 +1,29 @@
-# Just disables the warning, doesn't enable AVX/FMA
-import tensorflow as tf
-import os
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import LabelEncoder
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-W = tf.Variable([.3], tf.float32)
-b = tf.Variable([-.3], tf.float32)
+def one_hot_encoder(labels):
+    n_labels = len(labels)
+    n_unique_labels = len(np.unique(labels))
+    one_hot_encode = np.zeros((n_labels, n_unique_labels))
+    one_hot_encode[np.arange(n_labels), labels] = 1
+    return one_hot_encode
 
-x = tf.placeholder(tf.float32)
 
-linear_model = W * x + b
+df = pd.read_csv("/Volumes/SD64GB/GoogleDrive/tforce_btc_trader/unrelated_tutorial/data.csv")
 
-y = tf.placeholder(tf.float32)
+X = df[df.columns[0:60]].values
+y = df[df.columns[60]]
 
-# loss
-squared_delta = tf.square(linear_model-y)
-loss = tf.reduce_sum(squared_delta)
 
-# optimize model
-optimizer = tf.train.GradientDescentOptimizer(0.01)
-train = optimizer.minimize(loss)
+# encode the dependent variable
+encoder = LabelEncoder()
+encoder.fit(y)
+y = encoder.transform(y)
+Y = one_hot_encoder(y)
 
-init = tf.global_variables_initializer()
 
-sess = tf.Session()
-sess.run(init)
 
-for i in range(1000):
-    sess.run(train, {x:[0,1,2,3], y:[0,-1,-2,-3]})
 
-# print(sess.run(loss, {x:[0,1,2,3], y:[0,-1,-2,-3]}))
-
-print(sess.run([W, b]))
 
